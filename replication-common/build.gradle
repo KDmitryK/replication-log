@@ -1,0 +1,21 @@
+plugins {
+	id 'java'
+}
+
+group = 'com.ds.replicationlog'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	sourceCompatibility = '21'
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

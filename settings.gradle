@@ -1,0 +1,5 @@
+rootProject.name = 'replication-log'
+
+include 'master'
+include 'slave'
+include 'replication-common'
