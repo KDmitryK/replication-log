@@ -4,8 +4,8 @@ import com.ds.replicationlog.statemachine.DataElement;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,8 +30,8 @@ public class InMemoryRepoTest {
             addedData.add(new DataElement(data, seqNum));
         }
 
-        addedData.sort(Comparator.comparingLong(DataElement::sequenceNum));
-        assertEquals(addedData, repo.getDataElements());
+        assertEquals(addedData.stream().filter(d -> d.sequenceNum() >= 500).collect(Collectors.toList()),
+                repo.getDataElements(500));
     }
 
     @Test
@@ -48,7 +48,7 @@ public class InMemoryRepoTest {
         repo.putDataElement(toBeSaved);
         repo.putDataElement(new DataElement("2", 1));
 
-        var dataElements = repo.getDataElements();
+        var dataElements = repo.getDataElements(0);
 
         assertEquals(1, dataElements.size());
         assertEquals(toBeSaved, dataElements.get(0));

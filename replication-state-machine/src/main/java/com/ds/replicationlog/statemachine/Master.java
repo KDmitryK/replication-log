@@ -28,8 +28,8 @@ public class Master {
         this.peerClient = requireNonNull(peerClient);
     }
 
-    public List<DataElement> getData() {
-        return repository.getDataElements();
+    public List<DataElement> getData(long fromSeqNum) {
+        return repository.getDataElements(fromSeqNum);
     }
 
     public void appendData(int minAcknowledgments, String data) throws InterruptedException, TimeoutException {

@@ -48,10 +48,11 @@ public class MasterTest {
 
     @Test
     public void getDataReturnsSavedItems() {
-        when(repository.getDataElements()).thenReturn(List.of(new DataElement("data", 1)));
+        var fromSeqNum = 5L;
+        when(repository.getDataElements(fromSeqNum)).thenReturn(List.of(new DataElement("data", 1)));
         var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
 
-        var result = master.getData();
+        var result = master.getData(fromSeqNum);
 
         assertEquals(List.of(new DataElement("data", 1)), result);
         verify(peerClient, never()).sendNotification(any());

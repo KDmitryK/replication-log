@@ -24,9 +24,9 @@ public class InMemoryRepo implements DataRepository {
     }
 
     @Override
-    public List<DataElement> getDataElements() {
+    public List<DataElement> getDataElements(long fromSeqNum) {
         return dataElements.values().stream().sorted(Comparator.comparingLong(DataElement::sequenceNum))
-                .collect(Collectors.toList());
+                .filter(d -> d.sequenceNum() >= fromSeqNum).collect(Collectors.toList());
     }
 
     @Override
