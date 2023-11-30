@@ -16,16 +16,15 @@ public class Master {
     private final Map<Long, ReplicationState> acknowledges = new ConcurrentHashMap<>();
     private final DataRepository repository;
     private final Duration minAcknowledgmentsWaitTime;
-    private final PeerClient<DataElement, Void> peerClient;
+    private final SlavesClient slavesClient;
 
-    public Master(DataRepository repository, Duration minAcknowledgmentsWaitTime,
-                  PeerClient<DataElement, Void> peerClient) {
+    public Master(DataRepository repository, Duration minAcknowledgmentsWaitTime, SlavesClient slavesClient) {
         this.repository = requireNonNull(repository);
         if (!minAcknowledgmentsWaitTime.isPositive()) {
             throw new IllegalArgumentException("Acknowledgments wait time must be positive");
         }
         this.minAcknowledgmentsWaitTime = requireNonNull(minAcknowledgmentsWaitTime);
-        this.peerClient = requireNonNull(peerClient);
+        this.slavesClient = requireNonNull(slavesClient);
     }
 
     public List<DataElement> getData(long fromSeqNum) {
@@ -46,7 +45,7 @@ public class Master {
         var replicationState = new ReplicationState(minAcknowledgments, minAcknowledgmentsWaitTime);
         acknowledges.put(seqNum, replicationState);
         try {
-            peerClient.sendNotification(dataElement);
+            slavesClient.appendData(dataElement);
             if (minAcknowledgments > 0) {
                 replicationState.waitAcknowledgments();
             }
@@ -81,7 +80,7 @@ public class Master {
 
         private void waitAcknowledgments() throws InterruptedException, TimeoutException {
             if (!latchLatch.await(minAcknowledgmentsWaitTime.toMillis(), TimeUnit.MILLISECONDS)) {
-                throw new TimeoutException("");
+                throw new TimeoutException("Waiting for acknowledgments has exceeded the timeout");
             }
         }
     }

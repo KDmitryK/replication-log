@@ -23,26 +23,26 @@ public class MasterTest {
     @Mock
     private DataRepository repository;
     @Mock
-    private PeerClient<DataElement, Void> peerClient;
+    private SlavesClient slavesClient;
 
     @Test
     public void constructionForNullRepoFails() {
-        assertThrows(NullPointerException.class, () -> new Master(null, minAcknowledgmentsWaitTime, peerClient));
+        assertThrows(NullPointerException.class, () -> new Master(null, minAcknowledgmentsWaitTime, slavesClient));
     }
 
     @Test
     public void constructionForNullMinAcknowledgmentsWaitTimeFails() {
         //noinspection DataFlowIssue
-        assertThrows(NullPointerException.class, () -> new Master(repository, null, peerClient));
+        assertThrows(NullPointerException.class, () -> new Master(repository, null, slavesClient));
     }
 
     @Test
     public void constructionForNonPositiveMinAcknowledgmentsWaitTimeFails() {
-        assertThrows(IllegalArgumentException.class, () -> new Master(repository, Duration.ZERO, peerClient));
+        assertThrows(IllegalArgumentException.class, () -> new Master(repository, Duration.ZERO, slavesClient));
     }
 
     @Test
-    public void constructionForNullPeerClientFails() {
+    public void constructionForNullClientFails() {
         assertThrows(NullPointerException.class, () -> new Master(repository, minAcknowledgmentsWaitTime, null));
     }
 
@@ -50,24 +50,24 @@ public class MasterTest {
     public void getDataReturnsSavedItems() {
         var fromSeqNum = 5L;
         when(repository.getDataElements(fromSeqNum)).thenReturn(List.of(new DataElement("data", 1)));
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
 
         var result = master.getData(fromSeqNum);
 
         assertEquals(List.of(new DataElement("data", 1)), result);
-        verify(peerClient, never()).sendNotification(any());
+        verify(slavesClient, never()).appendData(any());
     }
 
     @Test
     public void appendDataForNegativeMinAcknowledgmentsFails() {
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
 
         assertThrows(IllegalArgumentException.class, () -> master.appendData(-1, "data"));
     }
 
     @Test
     public void appendDataForNullDataFails() {
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
 
         assertThrows(NullPointerException.class, () -> master.appendData(0, null));
     }
@@ -75,19 +75,19 @@ public class MasterTest {
     @Test
     public void appendDataForForZeroMinAcknowledgmentsDoesNotWaitForAcknowledgments() throws InterruptedException,
             TimeoutException {
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
         var data = "data";
         var seqNum = 1L;
         when(repository.appendData(data)).thenReturn(seqNum);
 
         master.appendData(0, data);
 
-        verify(peerClient).sendNotification(new DataElement(data, seqNum));
+        verify(slavesClient).appendData(new DataElement(data, seqNum));
     }
 
     @Test
     public void appendDataIgnoresUnknownAcknowledgments() throws InterruptedException, TimeoutException {
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
         var data = "data";
         var seqNum = 1L;
         when(repository.appendData(data)).thenReturn(seqNum);
@@ -95,12 +95,12 @@ public class MasterTest {
 
         master.acknowledgeReception(new Acknowledgement("r1", seqNum));
 
-        verify(peerClient).sendNotification(new DataElement(data, seqNum));
+        verify(slavesClient).appendData(new DataElement(data, seqNum));
     }
 
     @Test
     public void appendDataIgnoresAcknowledgmentDuplicates() throws InterruptedException, TimeoutException {
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
         var data = "data";
         var seqNum = 2L;
         var replicaId1 = "r1";
@@ -126,12 +126,12 @@ public class MasterTest {
         master.appendData(2, data);
 
         assertTrue(Duration.ofNanos(System.nanoTime() - startNano).toSeconds() >= 2);
-        verify(peerClient).sendNotification(new DataElement(data, seqNum));
+        verify(slavesClient).appendData(new DataElement(data, seqNum));
     }
 
     @Test
     public void appendDataIfAcknowledgmentsAreNotReceivedInTimeInterrupts() {
-        var master = new Master(repository, minAcknowledgmentsWaitTime, peerClient);
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
         var data = "data";
         var seqNum = 2L;
         var replicaId1 = "r1";
@@ -148,6 +148,6 @@ public class MasterTest {
 
         assertThrows(TimeoutException.class, () -> master.appendData(2, data));
 
-        verify(peerClient).sendNotification(new DataElement(data, seqNum));
+        verify(slavesClient).appendData(new DataElement(data, seqNum));
     }
 }
