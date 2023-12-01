@@ -31,7 +31,7 @@ public class Slave {
         this.replicationThread = new Thread(() -> {
            try {
                appendQueuedData();
-           } catch (InterruptedException e){
+           } catch (InterruptedException e) {
                Thread.currentThread().interrupt();
            }
         });
@@ -65,10 +65,10 @@ public class Slave {
     }
 
     private void replicateBacklog(long fromSeqNum) {
-        getMaterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
+        getMasterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
     }
 
-    private List<DataElement> getMaterData(long fromSeqNum) {
+    private List<DataElement> getMasterData(long fromSeqNum) {
         return masterClient.getDataElements(fromSeqNum).stream().sorted(Comparator.comparingLong(
                 DataElement::sequenceNum)).collect(Collectors.toList());
     }
