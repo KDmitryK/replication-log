@@ -1,5 +1,8 @@
 package com.ds.replicationlog.statemachine;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -13,6 +16,8 @@ import java.util.concurrent.TimeoutException;
 import static java.util.Objects.requireNonNull;
 
 public class Master {
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
     private final Map<Long, ReplicationState> acknowledges = new ConcurrentHashMap<>();
     private final DataRepository repository;
     private final Duration minAcknowledgmentsWaitTime;
@@ -45,12 +50,20 @@ public class Master {
         var replicationState = new ReplicationState(minAcknowledgments, minAcknowledgmentsWaitTime);
         acknowledges.put(seqNum, replicationState);
         try {
-            slavesClient.appendData(dataElement);
+            updateReplicas(dataElement);
             if (minAcknowledgments > 0) {
                 replicationState.waitAcknowledgments();
             }
         } finally {
             acknowledges.remove(seqNum);
+        }
+    }
+
+    private void updateReplicas(DataElement dataElement) {
+        try {
+            slavesClient.appendData(dataElement);
+        } catch (RuntimeException e) {
+            logger.warn("Failed to send updates to replicas", e);
         }
     }
 

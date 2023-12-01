@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -149,5 +150,16 @@ public class MasterTest {
         assertThrows(TimeoutException.class, () -> master.appendData(2, data));
 
         verify(slavesClient).appendData(new DataElement(data, seqNum));
+    }
+
+    @Test
+    public void appendDataForFailedReplicasUpdateFailsBecauseOfTimeout() {
+        var master = new Master(repository, minAcknowledgmentsWaitTime, slavesClient);
+        var data = "data";
+        var seqNum = 2L;
+        when(repository.appendData(data)).thenReturn(seqNum);
+        doThrow(new RuntimeException("test")).when(slavesClient).appendData(new DataElement(data, seqNum));
+
+        assertThrows(TimeoutException.class, () -> master.appendData(2, data));
     }
 }
