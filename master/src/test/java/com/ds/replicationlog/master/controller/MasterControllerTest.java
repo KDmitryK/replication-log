@@ -15,23 +15,23 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(DataController.class)
-public class DataControllerTest {
+@WebMvcTest(MasterController.class)
+public class MasterControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired
     private MockMvc mockMvc;
 
     @Test
-    public void appendMessageAcceptsMessage() throws Exception {
-        var message = new Message("payload", 1);
+    public void appendDataAcceptsMessage() throws Exception {
+        var appendRequest = new AppendDataRequest("payload", 1);
 
-        mockMvc.perform(post("/data/append_message").contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(message))).andDo(print()).andExpect(status().isOk());
+        mockMvc.perform(post("/master/data/append_data").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(appendRequest))).andDo(print()).andExpect(status().isOk());
     }
 
     @Test
-    public void getMessagesSucceeds() throws Exception {
-        var resultJson= mockMvc.perform(get("/data/get_messages")).andDo(print()).andExpect(status().isOk())
+    public void getDataSucceeds() throws Exception {
+        var resultJson= mockMvc.perform(get("/master/data/get_data")).andDo(print()).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
         assertEquals(List.of(), objectMapper.readValue(resultJson, List.class));

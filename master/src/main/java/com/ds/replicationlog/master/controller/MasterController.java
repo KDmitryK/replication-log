@@ -13,19 +13,19 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/data/")
-public class DataController {
+@RequestMapping("/master/")
+public class MasterController {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @PostMapping("append_message")
-    public void appendMessage(@RequestBody  Message message) {
-        logger.info("Append message was called for: {}", message);
+    @PostMapping("data/append_data")
+    public void appendData(@RequestBody AppendDataRequest appendDataRequest) {
+        logger.info("Append data was called for: {}", appendDataRequest);
     }
 
-    @GetMapping(value = "get_messages", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "data/get_data", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public List<String> getMessages() {
-        logger.info("Get messages was executed");
+    public List<String> getData() {
+        logger.info("Get data was executed");
         return List.of();
     }
 }
