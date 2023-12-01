@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -105,6 +106,23 @@ public class SlaveTest {
     }
 
     @Test
+    public void slaveForSavedElementSkipsSavingHandlesFailingAcknowledgment() throws InterruptedException {
+        var masterData = List.of(new DataElement("data1", 1), new DataElement("data2", 2));
+        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(repository.appendData("data1")).thenReturn(1L);
+        when(repository.appendData("data2")).thenReturn(2L);
+        doThrow(new RuntimeException("test")).when(masterClient).acknowledgeReception(any());
+
+        slave.start();
+        Thread.sleep(2_000);
+        slave.appendData(new DataElement("data1", 1));
+
+        verify(repository).appendData("data1");
+        verify(repository).appendData("data2");
+        verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 1));
+    }
+
+    @Test
     public void slaveInRaceConditionFetchesMissingElementsFromMaster() throws InterruptedException {
         var masterData = List.of(new DataElement("data1", 1));
         when(masterClient.getDataElements(0)).thenReturn(masterData);
@@ -138,6 +156,26 @@ public class SlaveTest {
         when(masterClient.getDataElements(0)).thenReturn(List.of());
         when(repository.appendData("data1")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
+
+        slave.start();
+        Thread.sleep(2_000);
+        slave.appendData(new DataElement("data1", 1));
+        slave.appendData(new DataElement("data2", 2));
+
+        verify(masterClient).getDataElements(anyLong());
+        verify(repository).appendData("data1");
+        verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 1));
+        verify(repository).appendData("data2");
+        verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 2));
+    }
+
+    @Test
+    public void slaveAcceptsDataElementAndHandlesFailedAcknowledgement() throws InterruptedException {
+        when(masterClient.getDataElements(0)).thenReturn(List.of());
+        when(repository.appendData("data1")).thenReturn(1L);
+        when(repository.appendData("data2")).thenReturn(2L);
+        doThrow(new RuntimeException("test1")).doThrow(new RuntimeException("test1")).when(masterClient)
+                .acknowledgeReception(any());
 
         slave.start();
         Thread.sleep(2_000);

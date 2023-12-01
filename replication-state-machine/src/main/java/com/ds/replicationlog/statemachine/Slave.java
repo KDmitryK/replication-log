@@ -1,5 +1,8 @@
 package com.ds.replicationlog.statemachine;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -9,6 +12,8 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 public class Slave {
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
     private static final long QUEUE_POLL_WAIT_MS = 1_000;
     private final Thread replicationThread;
     private final PriorityBlockingQueue<DataElement> replicationQueue;
@@ -54,10 +59,10 @@ public class Slave {
                 continue;
             }
             if (appliedSeqNum >= dataElement.sequenceNum()) {
-                masterClient.acknowledgeReception(new Acknowledgement(replicaId, dataElement.sequenceNum()));
+                acknowledgeReception(new Acknowledgement(replicaId, dataElement.sequenceNum()));
             } else if (appliedSeqNum + 1 == dataElement.sequenceNum()) {
                 appendData(dataElement.data());
-                masterClient.acknowledgeReception(new Acknowledgement(replicaId, dataElement.sequenceNum()));
+                acknowledgeReception(new Acknowledgement(replicaId, dataElement.sequenceNum()));
             } else {
                 replicateBacklog(appliedSeqNum + 1);
             }
@@ -71,6 +76,14 @@ public class Slave {
     private List<DataElement> getMasterData(long fromSeqNum) {
         return masterClient.getDataElements(fromSeqNum).stream().sorted(Comparator.comparingLong(
                 DataElement::sequenceNum)).collect(Collectors.toList());
+    }
+
+    private void acknowledgeReception(Acknowledgement acknowledgement) {
+        try {
+            masterClient.acknowledgeReception(acknowledgement);
+        } catch (RuntimeException e) {
+            logger.warn("Failed to acknowledge data element reception", e);
+        }
     }
 
     private void appendData(String data) {
