@@ -2,6 +2,7 @@ package com.ds.replicationlog.slave.controller;
 
 import com.ds.replicationlog.statemachine.DataElement;
 import com.ds.replicationlog.statemachine.Slave;
+import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -34,6 +35,7 @@ public class SlaveController {
         return slave.getData(0);
     }
 
+    @Hidden
     @PostMapping("replication/append_data")
     public void appendData(@RequestBody DataElement dataElement) {
         logger.debug("Replication data append: {}", dataElement);
