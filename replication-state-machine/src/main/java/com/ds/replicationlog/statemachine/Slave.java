@@ -65,7 +65,7 @@ public class Slave {
     }
 
     private void replicateBacklog(long fromSeqNum) {
-        getMaterData(fromSeqNum).forEach(dataElement -> appliedSeqNum = repository.appendData(dataElement.data()));
+        getMaterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
     }
 
     private List<DataElement> getMaterData(long fromSeqNum) {
