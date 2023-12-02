@@ -54,22 +54,26 @@ public class Slave {
     }
 
     private void appendQueuedData() throws InterruptedException {
-        replicateBacklog(appliedSeqNum, () -> {});
+        var initialReplicationRequired = true;
         while (!Thread.currentThread().isInterrupted()) {
+            if (initialReplicationRequired) {
+                initialReplicationRequired = !replicateBacklog(appliedSeqNum + 1, () -> {});
+            }
+
             var dataElement = replicationQueue.poll(QUEUE_POLL_WAIT_MS, TimeUnit.MILLISECONDS);
             if (dataElement == null) {
                 continue;
             }
-            var failedSave = false;
+            var successfullSave = true;
             if (appliedSeqNum >= dataElement.sequenceNum()) {
                 acknowledge(new Acknowledgement(replicaId, dataElement.sequenceNum()));
             } else if (appliedSeqNum + 1 == dataElement.sequenceNum()) {
-                failedSave = appendDataAndAcknowledge(dataElement, replicationQueue::put);
+                successfullSave = appendDataAndAcknowledge(dataElement, replicationQueue::put);
             } else {
-                failedSave = replicateBacklog(appliedSeqNum + 1, () -> replicationQueue.put(dataElement));
+                successfullSave = replicateBacklog(appliedSeqNum + 1, () -> replicationQueue.put(dataElement));
             }
 
-            if (failedSave) {
+            if (!successfullSave) {
                 //noinspection BusyWait
                 Thread.sleep(AFTER_FAILURE_WAIT_MS);
             }
@@ -77,15 +81,15 @@ public class Slave {
     }
 
     private boolean replicateBacklog(long fromSeqNum, Runnable onError) {
-        var failedSave = false;
+        var successfullSave = true;
         try {
             getMasterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
         } catch (RuntimeException e) {
             logger.warn("Failed backlog replication", e);
-            failedSave = true;
+            successfullSave = false;
             onError.run();
         }
-        return failedSave;
+        return successfullSave;
     }
 
     private List<DataElement> getMasterData(long fromSeqNum) {
@@ -102,16 +106,16 @@ public class Slave {
     }
 
     private boolean appendDataAndAcknowledge(DataElement dataElement, Consumer<DataElement> onError) {
-        var failedSave = false;
+        var successfullSave = true;
         try {
             appendData(dataElement.data());
             acknowledge(new Acknowledgement(replicaId, dataElement.sequenceNum()));
         } catch (RuntimeException e) {
-            failedSave = true;
+            successfullSave = false;
             logger.warn("Failed to append data", e);
             onError.accept(dataElement);
         }
-        return failedSave;
+        return successfullSave;
     }
 
     private void appendData(String data) {

@@ -78,7 +78,7 @@ public class SlaveTest {
     @Test
     public void slaveRestoresStateFromMasterOnStart() throws InterruptedException {
         var masterData = List.of(new DataElement("data1", 1), new DataElement("data2", 2));
-        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(masterClient.getDataElements(1)).thenReturn(masterData);
         when(repository.appendData("data1")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
 
@@ -91,9 +91,25 @@ public class SlaveTest {
     }
 
     @Test
+    public void slaveHandlesErrorDuringRestoringStateFromMasterOnStart() throws InterruptedException {
+        var masterData = List.of(new DataElement("data1", 1), new DataElement("data2", 2));
+        when(masterClient.getDataElements(1)).thenReturn(masterData);
+        when(repository.appendData("data1")).thenReturn(1L);
+        when(repository.appendData("data2")).thenThrow(new RuntimeException("test")).thenReturn(2L);
+        when(masterClient.getDataElements(2)).thenReturn(List.of(new DataElement("data2", 2)));
+
+        slave.start();
+        Thread.sleep(4_000);
+
+        verify(repository).appendData("data1");
+        verify(repository, times(2)).appendData("data2");
+        verify(masterClient, never()).acknowledgeReception(any());
+    }
+
+    @Test
     public void slaveForSavedElementSkipsSavingAndAcknowledges() throws InterruptedException {
         var masterData = List.of(new DataElement("data1", 1), new DataElement("data2", 2));
-        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(masterClient.getDataElements(1)).thenReturn(masterData);
         when(repository.appendData("data1")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
 
@@ -109,7 +125,7 @@ public class SlaveTest {
     @Test
     public void slaveForSavedElementSkipsSavingHandlesFailingAcknowledgment() throws InterruptedException {
         var masterData = List.of(new DataElement("data1", 1), new DataElement("data2", 2));
-        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(masterClient.getDataElements(1)).thenReturn(masterData);
         when(repository.appendData("data1")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
         doThrow(new RuntimeException("test")).when(masterClient).acknowledgeReception(any());
@@ -126,7 +142,7 @@ public class SlaveTest {
     @Test
     public void slaveInRaceConditionFetchesMissingElementsFromMaster() throws InterruptedException {
         var masterData = List.of(new DataElement("data1", 1));
-        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(masterClient.getDataElements(1)).thenReturn(masterData);
         when(repository.appendData("data1")).thenReturn(1L);
         when(masterClient.getDataElements(2)).thenReturn(List.of(new DataElement("data2", 2),
                 new DataElement("data3", 3)));
@@ -146,7 +162,7 @@ public class SlaveTest {
     @Test
     public void failingSlaveInRaceConditionRetriesFetchingMissingElementsFromMaster() throws InterruptedException {
         var masterData = List.of(new DataElement("data1", 1));
-        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(masterClient.getDataElements(1)).thenReturn(masterData);
         when(repository.appendData("data1")).thenReturn(1L);
         when(masterClient.getDataElements(2)).thenThrow(new RuntimeException("test"))
                 .thenReturn(List.of(new DataElement("data2", 2), new DataElement("data3", 3)));
@@ -166,7 +182,7 @@ public class SlaveTest {
 
     @Test
     public void slaveDoesInitialRestoreOnlyOnce() throws InterruptedException {
-        when(masterClient.getDataElements(0)).thenReturn(List.of());
+        when(masterClient.getDataElements(1)).thenReturn(List.of());
 
         slave.start();
         Thread.sleep(3_000);
@@ -176,7 +192,7 @@ public class SlaveTest {
 
     @Test
     public void slaveAcceptsDataElementAndAcknowledges() throws InterruptedException {
-        when(masterClient.getDataElements(0)).thenReturn(List.of());
+        when(masterClient.getDataElements(1)).thenReturn(List.of());
         when(repository.appendData("data1")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
 
@@ -194,7 +210,7 @@ public class SlaveTest {
 
     @Test
     public void slaveForFailedAcceptRetriesAcceptDataElementAndAcknowledges() throws InterruptedException {
-        when(masterClient.getDataElements(0)).thenReturn(List.of());
+        when(masterClient.getDataElements(1)).thenReturn(List.of());
         when(repository.appendData("data1")).thenThrow(new RuntimeException("test")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
 
@@ -213,7 +229,7 @@ public class SlaveTest {
 
     @Test
     public void slaveAcceptsDataElementAndHandlesFailedAcknowledgement() throws InterruptedException {
-        when(masterClient.getDataElements(0)).thenReturn(List.of());
+        when(masterClient.getDataElements(1)).thenReturn(List.of());
         when(repository.appendData("data1")).thenReturn(1L);
         when(repository.appendData("data2")).thenReturn(2L);
         doThrow(new RuntimeException("test1")).doThrow(new RuntimeException("test1")).when(masterClient)
