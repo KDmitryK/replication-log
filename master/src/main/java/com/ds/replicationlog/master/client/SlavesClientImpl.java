@@ -6,11 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpClient;
@@ -52,7 +52,7 @@ public class SlavesClientImpl implements SlavesClient {
     private void sendRequest(String endpoint, DataElement dataElement) {
         try {
             var status = sendHttpRequest(endpoint, dataElement);
-            if (status != HttpStatus.OK) {
+            if (status != HttpURLConnection.HTTP_OK) {
                 logger.warn("Failed to send data update to slave, status: {}", status);
             }
         } catch (Exception e) {
@@ -60,7 +60,7 @@ public class SlavesClientImpl implements SlavesClient {
         }
     }
 
-    private HttpStatus sendHttpRequest(String uri, DataElement dataElement) throws URISyntaxException, IOException,
+    private int sendHttpRequest(String uri, DataElement dataElement) throws URISyntaxException, IOException,
             InterruptedException {
         byte[] dataElementBytes = objectMapper.writeValueAsString(dataElement).getBytes();
         var request = HttpRequest.newBuilder()
@@ -71,7 +71,7 @@ public class SlavesClientImpl implements SlavesClient {
                 .build();
 
         try (var client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build()) {
-            return HttpStatus.valueOf(client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode());
+            return client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode();
         }
     }
 }
