@@ -135,10 +135,32 @@ public class SlaveTest {
         slave.start();
         Thread.sleep(2_000);
         slave.appendData(new DataElement("data3", 3));
+        Thread.sleep(2_000);
 
         verify(repository).appendData("data1");
         verify(repository).appendData("data2");
         verify(repository).appendData("data3");
+        verify(masterClient, never()).acknowledgeReception(any());
+    }
+
+    @Test
+    public void failingSlaveInRaceConditionRetriesFetchingMissingElementsFromMaster() throws InterruptedException {
+        var masterData = List.of(new DataElement("data1", 1));
+        when(masterClient.getDataElements(0)).thenReturn(masterData);
+        when(repository.appendData("data1")).thenReturn(1L);
+        when(masterClient.getDataElements(2)).thenThrow(new RuntimeException("test"))
+                .thenReturn(List.of(new DataElement("data2", 2), new DataElement("data3", 3)));
+        when(repository.appendData("data2")).thenReturn(2L);
+
+        slave.start();
+        Thread.sleep(2_000);
+        slave.appendData(new DataElement("data3", 3));
+        Thread.sleep(2_000);
+
+        verify(repository).appendData("data1");
+        verify(repository).appendData("data2");
+        verify(repository).appendData("data3");
+        verify(masterClient, times(2)).getDataElements(2);
         verify(masterClient, never()).acknowledgeReception(any());
     }
 

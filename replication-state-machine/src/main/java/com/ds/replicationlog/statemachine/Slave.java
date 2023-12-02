@@ -54,7 +54,7 @@ public class Slave {
     }
 
     private void appendQueuedData() throws InterruptedException {
-        replicateBacklog(appliedSeqNum);
+        replicateBacklog(appliedSeqNum, () -> {});
         while (!Thread.currentThread().isInterrupted()) {
             var dataElement = replicationQueue.poll(QUEUE_POLL_WAIT_MS, TimeUnit.MILLISECONDS);
             if (dataElement == null) {
@@ -66,7 +66,7 @@ public class Slave {
             } else if (appliedSeqNum + 1 == dataElement.sequenceNum()) {
                 failedSave = appendDataAndAcknowledge(dataElement, replicationQueue::put);
             } else {
-                replicateBacklog(appliedSeqNum + 1);
+                failedSave = replicateBacklog(appliedSeqNum + 1, () -> replicationQueue.put(dataElement));
             }
 
             if (failedSave) {
@@ -76,8 +76,16 @@ public class Slave {
         }
     }
 
-    private void replicateBacklog(long fromSeqNum) {
-        getMasterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
+    private boolean replicateBacklog(long fromSeqNum, Runnable onError) {
+        var failedSave = false;
+        try {
+            getMasterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
+        } catch (RuntimeException e) {
+            logger.warn("Failed backlog replication", e);
+            failedSave = true;
+            onError.run();
+        }
+        return failedSave;
     }
 
     private List<DataElement> getMasterData(long fromSeqNum) {
