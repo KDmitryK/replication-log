@@ -36,11 +36,17 @@ public class Slave {
         this.replicaId = requireNonNull(replicaId);
 
         this.replicationThread = new Thread(() -> {
-           try {
-               appendQueuedData();
-           } catch (InterruptedException e) {
-               Thread.currentThread().interrupt();
-           }
+            var initialReplicationRequired = true;
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    if (initialReplicationRequired) {
+                        initialReplicationRequired = !replicateBacklog(appliedSeqNum + 1, () -> {});
+                    }
+                    appendQueuedData();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         });
     }
 
@@ -54,42 +60,32 @@ public class Slave {
     }
 
     private void appendQueuedData() throws InterruptedException {
-        var initialReplicationRequired = true;
-        while (!Thread.currentThread().isInterrupted()) {
-            if (initialReplicationRequired) {
-                initialReplicationRequired = !replicateBacklog(appliedSeqNum + 1, () -> {});
-            }
-
-            var dataElement = replicationQueue.poll(QUEUE_POLL_WAIT_MS, TimeUnit.MILLISECONDS);
-            if (dataElement == null) {
-                continue;
-            }
-            var successfullSave = true;
+        var dataElement = replicationQueue.poll(QUEUE_POLL_WAIT_MS, TimeUnit.MILLISECONDS);
+        if (dataElement != null) {
+            var successfulSave = true;
             if (appliedSeqNum >= dataElement.sequenceNum()) {
                 acknowledge(new Acknowledgement(replicaId, dataElement.sequenceNum()));
             } else if (appliedSeqNum + 1 == dataElement.sequenceNum()) {
-                successfullSave = appendDataAndAcknowledge(dataElement, replicationQueue::put);
+                successfulSave = appendDataAndAcknowledge(dataElement, replicationQueue::put);
             } else {
-                successfullSave = replicateBacklog(appliedSeqNum + 1, () -> replicationQueue.put(dataElement));
+                successfulSave = replicateBacklog(appliedSeqNum + 1, () -> replicationQueue.put(dataElement));
             }
-
-            if (!successfullSave) {
-                //noinspection BusyWait
+            if (!successfulSave) {
                 Thread.sleep(AFTER_FAILURE_WAIT_MS);
             }
         }
     }
 
     private boolean replicateBacklog(long fromSeqNum, Runnable onError) {
-        var successfullSave = true;
+        var successfulSave = true;
         try {
             getMasterData(fromSeqNum).stream().map(DataElement::data).forEach(this::appendData);
         } catch (RuntimeException e) {
             logger.warn("Failed backlog replication", e);
-            successfullSave = false;
+            successfulSave = false;
             onError.run();
         }
-        return successfullSave;
+        return successfulSave;
     }
 
     private List<DataElement> getMasterData(long fromSeqNum) {
@@ -106,16 +102,16 @@ public class Slave {
     }
 
     private boolean appendDataAndAcknowledge(DataElement dataElement, Consumer<DataElement> onError) {
-        var successfullSave = true;
+        var successfulSave = true;
         try {
             appendData(dataElement.data());
             acknowledge(new Acknowledgement(replicaId, dataElement.sequenceNum()));
         } catch (RuntimeException e) {
-            successfullSave = false;
+            successfulSave = false;
             logger.warn("Failed to append data", e);
             onError.accept(dataElement);
         }
-        return successfullSave;
+        return successfulSave;
     }
 
     private void appendData(String data) {
