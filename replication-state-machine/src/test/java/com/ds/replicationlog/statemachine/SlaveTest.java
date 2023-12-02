@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -164,6 +165,25 @@ public class SlaveTest {
 
         verify(masterClient).getDataElements(anyLong());
         verify(repository).appendData("data1");
+        verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 1));
+        verify(repository).appendData("data2");
+        verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 2));
+    }
+
+    @Test
+    public void slaveForFailedAcceptRetriesAcceptDataElementAndAcknowledges() throws InterruptedException {
+        when(masterClient.getDataElements(0)).thenReturn(List.of());
+        when(repository.appendData("data1")).thenThrow(new RuntimeException("test")).thenReturn(1L);
+        when(repository.appendData("data2")).thenReturn(2L);
+
+        slave.start();
+        Thread.sleep(2_000);
+        slave.appendData(new DataElement("data1", 1));
+        slave.appendData(new DataElement("data2", 2));
+        Thread.sleep(2_000);
+
+        verify(masterClient).getDataElements(anyLong());
+        verify(repository, times(2)).appendData("data1");
         verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 1));
         verify(repository).appendData("data2");
         verify(masterClient).acknowledgeReception(new Acknowledgement(REPLICA_ID, 2));

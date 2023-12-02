@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -15,6 +16,7 @@ public class Slave {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private static final long QUEUE_POLL_WAIT_MS = 1_000;
+    private static final long AFTER_FAILURE_WAIT_MS = 1_000;
     private final Thread replicationThread;
     private final PriorityBlockingQueue<DataElement> replicationQueue;
     private final MasterClient masterClient;
@@ -58,13 +60,18 @@ public class Slave {
             if (dataElement == null) {
                 continue;
             }
+            var failedSave = false;
             if (appliedSeqNum >= dataElement.sequenceNum()) {
-                acknowledgeReception(new Acknowledgement(replicaId, dataElement.sequenceNum()));
+                acknowledge(new Acknowledgement(replicaId, dataElement.sequenceNum()));
             } else if (appliedSeqNum + 1 == dataElement.sequenceNum()) {
-                appendData(dataElement.data());
-                acknowledgeReception(new Acknowledgement(replicaId, dataElement.sequenceNum()));
+                failedSave = appendDataAndAcknowledge(dataElement, replicationQueue::put);
             } else {
                 replicateBacklog(appliedSeqNum + 1);
+            }
+
+            if (failedSave) {
+                //noinspection BusyWait
+                Thread.sleep(AFTER_FAILURE_WAIT_MS);
             }
         }
     }
@@ -78,12 +85,25 @@ public class Slave {
                 DataElement::sequenceNum)).collect(Collectors.toList());
     }
 
-    private void acknowledgeReception(Acknowledgement acknowledgement) {
+    private void acknowledge(Acknowledgement acknowledgement) {
         try {
             masterClient.acknowledgeReception(acknowledgement);
         } catch (RuntimeException e) {
             logger.warn("Failed to acknowledge data element reception", e);
         }
+    }
+
+    private boolean appendDataAndAcknowledge(DataElement dataElement, Consumer<DataElement> onError) {
+        var failedSave = false;
+        try {
+            appendData(dataElement.data());
+            acknowledge(new Acknowledgement(replicaId, dataElement.sequenceNum()));
+        } catch (RuntimeException e) {
+            failedSave = true;
+            logger.warn("Failed to append data", e);
+            onError.accept(dataElement);
+        }
+        return failedSave;
     }
 
     private void appendData(String data) {
