@@ -28,7 +28,7 @@ public class AppConfig {
         return protocolHandler -> protocolHandler.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    @Bean
+    @Bean(initMethod = "start", destroyMethod = "stop")
     public Slave slave(DataRepository repository, MasterClient masterClient) {
         return new Slave(repository, masterClient, 1_000, UUID.randomUUID().toString());
     }
