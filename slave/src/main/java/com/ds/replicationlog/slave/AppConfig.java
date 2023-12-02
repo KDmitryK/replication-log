@@ -11,6 +11,7 @@ import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.support.TaskExecutorAdapter;
 import org.springframework.scheduling.annotation.EnableAsync;
 
+import java.util.UUID;
 import java.util.concurrent.Executors;
 
 @SuppressWarnings("unused")
@@ -29,7 +30,7 @@ public class AppConfig {
 
     @Bean
     public Slave slave(DataRepository repository, MasterClient masterClient) {
-        return new Slave(repository, masterClient, 1_000, "replica1");
+        return new Slave(repository, masterClient, 1_000, UUID.randomUUID().toString());
     }
 
     @Bean
