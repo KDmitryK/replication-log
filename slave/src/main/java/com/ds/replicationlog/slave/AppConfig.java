@@ -1,5 +1,9 @@
 package com.ds.replicationlog.slave;
 
+import com.ds.replicationlog.statemachine.DataRepository;
+import com.ds.replicationlog.statemachine.MasterClient;
+import com.ds.replicationlog.statemachine.Slave;
+import com.ds.replicationlog.statemachine.repository.InMemoryRepo;
 import org.springframework.boot.web.embedded.tomcat.TomcatProtocolHandlerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +16,7 @@ import java.util.concurrent.Executors;
 @SuppressWarnings("unused")
 @EnableAsync
 @Configuration
-public class AsyncConfig {
+public class AppConfig {
     @Bean
     public AsyncTaskExecutor applicationTaskExecutor() {
         return new TaskExecutorAdapter(Executors.newVirtualThreadPerTaskExecutor());
@@ -21,5 +25,15 @@ public class AsyncConfig {
     @Bean
     public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadExecutorCustomizer() {
         return protocolHandler -> protocolHandler.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    @Bean
+    public Slave slave(DataRepository repository, MasterClient masterClient) {
+        return new Slave(repository, masterClient, 1_000, "replica1");
+    }
+
+    @Bean
+    public DataRepository repository() {
+        return new InMemoryRepo();
     }
 }
