@@ -4,6 +4,7 @@ import com.ds.replicationlog.statemachine.DataRepository;
 import com.ds.replicationlog.statemachine.Master;
 import com.ds.replicationlog.statemachine.SlavesClient;
 import com.ds.replicationlog.statemachine.repository.InMemoryRepo;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.embedded.tomcat.TomcatProtocolHandlerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,8 +30,9 @@ public class AppConfig {
     }
 
     @Bean
-    public Master master(DataRepository repository, SlavesClient slavesClient) {
-        return new Master(repository, Duration.ofSeconds(5), slavesClient);
+    public Master master(DataRepository repository, SlavesClient slavesClient,
+                         @Value("${minAcknowledgmentsWaitTimeSeconds}") int minAcknowledgmentsWaitTimeSeconds) {
+        return new Master(repository, Duration.ofSeconds(minAcknowledgmentsWaitTimeSeconds), slavesClient);
     }
 
     @Bean
