@@ -28,10 +28,4 @@ public class InMemoryRepo implements DataRepository {
         return dataElements.values().stream().sorted(Comparator.comparingLong(DataElement::sequenceNum))
                 .filter(d -> d.sequenceNum() >= fromSeqNum).collect(Collectors.toList());
     }
-
-    @Override
-    public void putDataElement(DataElement dataElement) {
-        requireNonNull(dataElement);
-        dataElements.putIfAbsent(dataElement.sequenceNum(), dataElement);
-    }
 }
