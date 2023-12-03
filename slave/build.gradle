@@ -22,6 +22,8 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.mock-server:mockserver-netty:5.15.0'
+	testImplementation 'org.mock-server:mockserver-client-java:5.15.0'
 }
 
 tasks.named('test') {
